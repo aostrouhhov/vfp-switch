@@ -1,0 +1,176 @@
+diff --git a/arch/arm/include/asm/switch_to.h b/arch/arm/include/asm/switch_to.h
+index 12ebfcc..8aa3925 100644
+--- a/arch/arm/include/asm/switch_to.h
++++ b/arch/arm/include/asm/switch_to.h
+@@ -1,7 +1,9 @@
++/* SPDX-License-Identifier: GPL-2.0 */
+ #ifndef __ASM_ARM_SWITCH_TO_H
+ #define __ASM_ARM_SWITCH_TO_H
+ 
+ #include <linux/thread_info.h>
++#include <asm/cp15.h>
+ 
+ /*
+  * For v7 SMP cores running a preemptible kernel we may be pre-empted
+@@ -24,6 +26,9 @@ extern struct task_struct *__switch_to(struct task_struct *, struct thread_info
+ 
+ #define switch_to(prev,next,last)					\
+ do {									\
++	u32 access;				\
++	access = get_copro_access();				\
++	set_copro_access(access | CPACC_FULL(10) | CPACC_FULL(11));				\
+ 	__complete_pending_tlbi();					\
+ 	last = __switch_to(prev,task_thread_info(prev), task_thread_info(next));	\
+ } while (0)
+diff --git a/arch/arm/vfp/vfpmodule.c b/arch/arm/vfp/vfpmodule.c
+index 7675518..c429a7a 100644
+--- a/arch/arm/vfp/vfpmodule.c
++++ b/arch/arm/vfp/vfpmodule.c
+@@ -22,6 +22,13 @@
+ #include <linux/user.h>
+ #include <linux/export.h>
+ 
++// For procfs entry
++#include <linux/proc_fs.h>
++#include <linux/string.h>
++#include <linux/vmalloc.h>
++#define MAX_PROC_SIZE 1
++int proc_data=0;
++
+ #include <asm/cp15.h>
+ #include <asm/cputype.h>
+ #include <asm/system_info.h>
+@@ -173,6 +180,7 @@ static int vfp_notifier(struct notifier_block *self, unsigned long cmd, void *v)
+ 
+ 	switch (cmd) {
+ 	case THREAD_NOTIFY_SWITCH:
++                // printk(KERN_INFO "In THREAD_NOTIFY_SWITCH\n");
+ 		fpexc = fmrx(FPEXC);
+ 
+ #ifdef CONFIG_SMP
+@@ -198,15 +206,18 @@ static int vfp_notifier(struct notifier_block *self, unsigned long cmd, void *v)
+ 		break;
+ 
+ 	case THREAD_NOTIFY_FLUSH:
+-		vfp_thread_flush(thread);
++		printk(KERN_INFO "In THREAD_NOTIFY_FLUSH\n");
++                vfp_thread_flush(thread);
+ 		break;
+ 
+ 	case THREAD_NOTIFY_EXIT:
+-		vfp_thread_exit(thread);
++		printk(KERN_INFO "In THREAD_NOTIFY_EXIT\n");
++                vfp_thread_exit(thread);
+ 		break;
+ 
+ 	case THREAD_NOTIFY_COPY:
+-		vfp_thread_copy(thread);
++	        printk(KERN_INFO "In THREAD_NOTIFY_COPY\n");
++                vfp_thread_copy(thread);
+ 		break;
+ 	}
+ 
+@@ -744,6 +755,76 @@ EXPORT_SYMBOL(kernel_neon_end);
+ /*
+  * VFP support code initialisation.
+  */
++/*
++int read_proc(char *buf,char **start,off_t offset,int count,int *eof,void *data )
++{
++    unsigned int vfp_status = get_copro_access();
++    // report = sprintf(buf,"\n %s\n ",vfp_status);
++
++    return vfp_status;
++}
++*/
++/*
++int write_proc(struct file *file,const char *buf,int count,void *data )
++{
++    if(count > MAX_PROC_SIZE)
++    count = MAX_PROC_SIZE;
++    if(copy_from_user(proc_data, buf, count))
++        return -EFAULT;
++
++    return count;
++}
++*/
++
++
++int write_proc(struct file *filp,const char *buf,size_t count,loff_t *offp)
++{
++    printk(KERN_INFO "In write of vfpStatus proc entry\n");
++
++    /* turn vfp off */
++    u32 fpexc;
++    fpexc = fmrx(FPEXC);
++    fmxr(FPEXC, fpexc & ~FPEXC_EN);
++
++    return 0;
++}
++
++int read_proc(struct file *filp,char *buf,size_t count,loff_t *offp ) 
++{
++    printk(KERN_INFO "In read of vfpStatus proc entry\n");
++
++    u32 fpexc;
++    char *msg;
++    fpexc = fmrx(FPEXC);
++
++    /* check vfp status */
++    if (fpexc & FPEXC_EN) {
++        msg = "1\n";
++    } else {
++        msg = "0\n";
++    }
++
++    int msg_size = strlen(msg);
++
++    if (*offp < msg_size) {
++        if (msg_size < count)
++            count = msg_size;
++
++            msg+=(*offp);
++            copy_to_user(buf, msg, count);
++            (*offp)+=count;
++
++            return count;
++    } else {
++        return 0;
++    }
++}
++
++struct file_operations proc_fops = {
++    read: read_proc,
++    write: write_proc
++};
++
+ static int __init vfp_init(void)
+ {
+ 	unsigned int vfpsid;
+@@ -752,6 +833,26 @@ static int __init vfp_init(void)
+ 	if (cpu_arch >= CPU_ARCH_ARMv6)
+ 		on_each_cpu(vfp_enable, NULL, 1);
+ 
++        /*
++         * Create procfs file with VFP status for debug
++         */
++  //  create_new_proc_entry();
++  proc_create("vfpStatus",0666,NULL,&proc_fops);
++
++/*        static struct proc_dir_entry *proc_entry_vfp_control;
++        proc_entry_vfp_control = create_proc_entry( "vfpControl", 0644, NULL ); // ToDo: read/write permissions
++        proc_create
++        if (proc_entry_vfp_control == NULL) {
++            // vfree(info);
++            printk(KERN_INFO "vfpControl could not be created!\n");
++        } else {
++            // write_index = 0;
++            // read_index = 0;
++            proc_entry_vfp_control->read_proc = read_proc;
++            // proc_entry_vfp_control->write_proc = write_proc;
++            printk(KERN_INFO "vfpControl created.\n");
++        }
++*/
+ 	/*
+ 	 * First check that there is a VFP that we can use.
+ 	 * The handler is already setup to just log calls, so
