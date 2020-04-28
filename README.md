@@ -36,7 +36,7 @@ git apply /vagrant/vfp-switch.patch
 ```
 KERNEL=kernel7
 make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- bcm2709_defconfig
-printf "DEBUG_INFO=y\nDEBUG_INFO_REDUCED=n\nDEBUG_INFO_SPLIT=n\nDEBUG_INFO_DWARF4=n\nGDB_SCRIPTS=y" >> .config
+printf "CONFIG_DEBUG_INFO=y\nCONFIG_DEBUG_INFO_REDUCED=n\nCONFIG_DEBUG_INFO_SPLIT=n\nCONFIG_DEBUG_INFO_DWARF4=n\nCONFIG_GDB_SCRIPTS=y" >> .config
 make -j8 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- zImage modules dtbs
 ```
 7. Run QEMU emulation with built kernel and *soft* rootfs
