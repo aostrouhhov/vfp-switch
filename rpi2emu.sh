@@ -33,6 +33,8 @@ do
   esac
 done
 
+DTB="/home/vagrant/linux/arch/arm/boot/dts/bcm2709-rpi-2-b.dtb"
+
 if [ "$KERNEL" == "" ]; then
   KERNEL="/home/vagrant/qemu-rpi2-workspace/kernel7.img"
 fi
@@ -41,7 +43,12 @@ if [ "$ROOTFS" == "" ]; then
   ROOTFS="/home/vagrant/qemu-rpi2-workspace/2016-05-27-raspbian-jessie-lite.img"
 fi
 
+if [ "$NEW_RUN" == true ]; then
+  DTB="/home/vagrant/qemu-rpi2-workspace/bcm2709-rpi-2-b.dtb"
+fi
+
 echo "NEW_RUN = ${NEW_RUN}"
+echo "DTB     = ${DTB}"
 echo "KERNEL  = ${KERNEL}"
 echo "ROOTFS  = ${ROOTFS}"
 
@@ -77,7 +84,7 @@ qemu-system-arm \
   -M raspi2 \
   -append "rw earlyprintk loglevel=8 console=ttyAMA0,115200 dwc_otg.lpm_enable=0 root=/dev/mmcblk0p2 nokaslr init=/bin/bash" \
   -cpu cortexa7 \
-  -dtb /home/vagrant/qemu-rpi2-workspace/bcm2709-rpi-2-b.dtb \
+  -dtb ${DTB} \
   -sd ${ROOTFS} \
   -kernel ${KERNEL} \
   -m 1G \

@@ -21,7 +21,7 @@ vagrant up
 ```
 git clone https://github.com/raspberrypi/tools ~/tools
 echo PATH=\$PATH:~/tools/arm-bcm2708/arm-rpi-4.9.3-linux-gnueabihf/bin >> ~/.bashrc
-source ~/.bashrc`
+source ~/.bashrc
 ```
 4. Get the kernel
 ```
@@ -30,11 +30,11 @@ cd linux
 ```
 5. Apply the patch
 ```
-git apply vfp-switch.patch
+git apply /vagrant/vfp-switch.patch
 ```
 6. Build the kernel with debug symbols
 ```
-KERNEL=kernel
+KERNEL=kernel7
 make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- bcm2709_defconfig
 printf "DEBUG_INFO=y\nDEBUG_INFO_REDUCED=n\nDEBUG_INFO_SPLIT=n\nDEBUG_INFO_DWARF4=n\nGDB_SCRIPTS=y" >> .config
 make -j8 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- zImage modules dtbs
