@@ -45,7 +45,7 @@ sudo bash /vagrant/rpi2emu.sh -k /home/vagrant/linux/arch/arm/boot/zImage -r /va
 ```
 8. `init=/bin/bash` is applied for faster kernel boot so *procfs* should be mounted manually:
 ```
-mount -t proc /proc
+mount -t proc none /proc
 ```
 9. Debugging:
 ```
